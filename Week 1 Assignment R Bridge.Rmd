@@ -1,0 +1,58 @@
+---
+title: "Week 1 - Assignment R Bridge"
+author: "Christian Thieme"
+date: "12/18/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Write a loop that calculates 12-factorial:
+
+
+```{r}
+val = 1
+for (i in 1:12) {
+  val <- sum(i * val)
+}
+sprintf("12! = %f", val) 
+
+```
+
+## 2. Show how to create a numeric vector that contains the sequence from 20 to 50 by 5:
+
+
+```{r}
+num_vect <- seq(from = 20, to= 50, by= 5)
+
+class(num_vect) #display data type to ensure it is numeric
+
+num_vect #to display answer
+```
+
+## 3. Create the function “quadratic” that takes a trio of input numbers a, b, and c and solve the quadratic equation. The function should print as output the two solutions:
+
+```{r}
+quadratic <- function(a, b, c){
+  if (a == 0){
+    return("a can't be zero!")
+  }
+  neg_b <- -b
+  square_root <- sqrt(b^2 - 4* a * c)
+  two_a <- 2 * a
+  
+  answer_one <- (neg_b + square_root)/two_a
+  answer_two <- (neg_b - square_root)/two_a
+  
+  sprintf("The first answer is: %f and the second answer is: %f", answer_one, answer_two)
+  #sprintf(" ", answer_two)
+  #print(answer_two)
+}
+
+quadratic(5,-5,-2)
+
+```
+
+
