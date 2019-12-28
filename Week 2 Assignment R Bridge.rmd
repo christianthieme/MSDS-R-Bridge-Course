@@ -1,0 +1,107 @@
+---
+title: "Week 2 Assignment R Bridge"
+author: "Christian Thieme"
+date: "12/27/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+## Question 1: Use the summary function to gain an overview of the data set. Then display the mean and median for at least two attributes: 
+
+```{r message=FALSE, warning=FALSE}
+#importing libraries needed for assignment
+library(readr)
+library(plyr)
+library(dplyr)
+
+# documentation for dataset found at https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/master/doc/boot/claridge.html
+## reading in dataset about Genetic Links to Left-handedness: 2 cols x 37 rows - readying directly from github repo
+
+df = read_csv("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/boot/claridge.csv")
+
+#original data frame
+df
+
+#renaming columns since one is blank and they are not descriptive
+df <-  df %>% rename(test_subject = X1, DNA_measurement = dnan, handedness = hand)
+
+#summary statistics of dataset
+summary(df)
+```
+
+Overview of the dataset: 
+The test_subject column is just a column that shows the test subjects numbers (1-37) and is not meaninful in any way other than to identify which subject belongs with which data. Looking at the DNA measurement column, it appears that the interquartile range is actually quite small, only 3. This tells us that there is not a ton of dipersion from the mean. It also looks like there may be some outliers as the min is 13 and the max is 44, which is significantly different than our mean of 28.51. The handedness column shows a score from 1 to 8, 1 being completely right handed for everything and 8 being completely left handed for everything, with the middle being some of both. In general, it looks like the vast majority of subjects are almost completly right hand dominant, based on the mean, median, and IQR values. 
+
+```{r}
+#calculations for mean and median for DNA_measurement column
+dna_col_mean = mean(df$DNA_measurement)
+dna_col_median = median(df$DNA_measurement)
+sprintf("The mean of the DNA_measurement columns is %f and the median is %f", dna_col_mean, dna_col_median )
+
+#calculations for mean and median for handedness column
+handedness_col_mean = mean(df$handedness)
+handedness_col_median = median(df$handedness)
+sprintf("The mean of the handedness columns is %f and the median is %f", handedness_col_mean, handedness_col_median )
+```
+
+## Question 2: Create a new data frame with a subset of the columns and rows. Make sure to rename it:
+
+```{r}
+new_df <- df %>% select(DNA_measurement, handedness) %>% filter(DNA_measurement > 27 & DNA_measurement < 32)
+new_df
+```
+
+## Question 3: Create new column names for the new data frame:
+
+```{r}
+new_df <- new_df %>% rename(measure = DNA_measurement, Right_1_Left_8 = handedness)
+new_df
+```
+
+## Question 4: Use the summary function to create an overview of your new data frame. The print the mean
+and median for the same two attributes. Please compare:
+
+```{r}
+#summary statistics for new_df
+summary(new_df)
+```
+```{r}
+measure_col_mean = mean(new_df$measure)
+measure_col_median = median(new_df$measure)
+sprintf("The mean of the DNA_measurement columns is %f and the median is %f", measure_col_mean, measure_col_median )
+
+#calculations for mean and median for handedness column
+Right_1_Left_8_col_mean = mean(new_df$Right_1_Left_8)
+Right_1_Left_8_col_median = median(new_df$Right_1_Left_8)
+sprintf("The mean of the handedness columns is %f and the median is %f", Right_1_Left_8_col_mean, Right_1_Left_8_col_median )
+```
+
+The mean and median of the DNA_measure column didn't change much with the adjustments to the data frame I made. I believe this is because, as I mentioned before, there isn't a ton of dispersion around the mean of this column, so when i filtered the dataset, I was merely removing some outliers. The handedness column median didn't change, but the mean did. I believe in removing the outliers from the DNA_measurement column, I probably removed some of the stronger left handed subjects, which is bringing my average down closer to those who are more predominately right handed. 
+
+## Question 5: For at least 3 values in a column please rename so that every value in that column is renamed:
+```{r}
+new_df <- new_df %>% mutate(Right_1_Left_8 = replace(Right_1_Left_8, Right_1_Left_8 == 1, 8))
+new_df <- new_df %>% mutate(Right_1_Left_8 = replace(Right_1_Left_8, Right_1_Left_8 == 2, 7))
+new_df <- new_df %>% mutate(Right_1_Left_8 = replace(Right_1_Left_8, Right_1_Left_8 == 3, 6))
+new_df <- new_df %>% mutate(measure = replace(measure, Right_1_Left_8 == 8, 15.5))
+new_df <- new_df %>% mutate(measure = replace(measure, Right_1_Left_8 == 7, 43))
+new_df
+```
+
+## Question 6: Display enough rows to see examples of all of steps 1-5 above.
+```{r}
+#Adjusting the options for the tibble to display all rows of data frame
+options(tibble.print_max = Inf)
+new_df
+```
+
+## BONUS: I placed the original csv file in my github and am reading it in here:
+
+```{r message=FALSE, warning=FALSE}
+my_df = read_csv("https://raw.githubusercontent.com/christianthieme/R-Bridge-Course/master/claridge.csv")
+my_df
+```
