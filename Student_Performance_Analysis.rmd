@@ -1,0 +1,240 @@
+---
+title: "Final Project - Student Performance Analysis"
+author: "Christian Thieme"
+date: "1/16/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **Student Perfromance Analysis**
+
+### **Overview of Dataset:**
+
+This dataset contains the test results for 1,000 high school students in math, reading, and writing. In addition, this dataset contains the following socioeconomic dimensional data: 
+
+* gender (male, female)
+* race/ethnicity (given as groups A - E)
+* parental level of education (some high school, high school, some college, associate's degree, bachelor's degree, master's degree)
+* lunch (standard, free/reduced)
+* test preparation course (none, completed)
+
+This dataset was obtained from [Kaggle.com](https://www.kaggle.com/spscientist/students-performance-in-exams).
+
+
+### **Question: Which socioeconomic factors lead to higher or lower test scores?**
+
+
+# **Analysis**
+
+
+First we will need to import the packages necessary for our analysis:
+```{r message=FALSE, warning=FALSE}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(ggthemes)
+```
+
+
+Now that we have the appropriate packages loaded, let's move forward with loading our dataset. This dataset is a CSV file that can be found at the link above. The CSV file was uploaded into my personal GitHub [account](https://github.com/christianthieme) and is being read by R from this [location](https://raw.githubusercontent.com/christianthieme/MSDS-R-Bridge-Course/master/StudentsPerformance.csv).
+
+```{r message=FALSE, warning=FALSE}
+scores <- readr::read_csv("https://raw.githubusercontent.com/christianthieme/MSDS-R-Bridge-Course/master/StudentsPerformance.csv")
+```
+
+
+Let's rename some of the columns to make future analysis easier and then take a look at the first few rows of our dataset: 
+
+```{r}
+scores <- scores %>% dplyr::rename("race_ethnicity" = "race/ethnicity", "parent_edu_levl" = "parental level of education", "test_prep_course"="test preparation course", "math_score" = "math score", "read_score" = "reading score", "write_score"= "writing score")
+head(scores)
+```
+
+To get a general, high-level feel for the dataset, let's run some summary statistics:
+```{r }
+summary(scores[6:8])
+
+```
+
+At a very high level, it appears that the mean, median, and IQR of all three test scores are very similar. One thing that we learn is that the overall academic health of many of our students is very poor with the mean and median test scores hovering right around a D+/C- range. Looking at the IQR we can see that around 50% of the students are hovering between C+ and D-, with the other 50% either getting B's and higher or failing. Which factors are leading to so many student's poor scores? And which factors contribute to higher scores? Let's create an average score column by summing math_score, read_score, and write_score columns and dividing by 3 to get a better feel for a student's overall academic performance. Lets then take a look at the distribution of average test scores using a histogram.
+
+```{r}
+scores <- scores %>% dplyr::mutate(total_score = math_score + read_score + write_score) %>% dplyr::mutate(avg_score = round(total_score /3, 2))
+head(scores)
+```
+```{r}
+ggplot(data = scores) + 
+  aes(x = avg_score) + 
+  geom_histogram(bins = 20, fill = "limegreen") +
+  labs(title = "Histogram of Average Student Scores") + 
+  theme_minimal()
+  
+  
+```
+
+The histogram above somewhat validates the high level assumptions we made from our summary statistics. The majority of the average test scores seem to be between 55 and 80 with the mean hovering somewhere around 70. 
+
+
+Before moving forward, let's make a few transformations to some of the columns. First, we need to replace each race_ethnicity group with their actual race/ethnicity profile (Group A = Black, Group B = Latino, etc.). Then, to make our visualization labels fit a little better, let's give each parent_edu_level a corresponding code (i.e. bachelor's = BA, master's = MA, etc.).
+
+```{r}
+scores <- scores %>% mutate(race_ethnicity = replace(race_ethnicity, race_ethnicity == "group A", "Black"))
+scores <- scores %>% mutate(race_ethnicity = replace(race_ethnicity, race_ethnicity == "group B", "Latino"))
+scores <- scores %>% mutate(race_ethnicity = replace(race_ethnicity, race_ethnicity == "group C", "Indian"))
+scores <- scores %>% mutate(race_ethnicity = replace(race_ethnicity, race_ethnicity == "group D", "White"))
+scores <- scores %>% mutate(race_ethnicity = replace(race_ethnicity, race_ethnicity == "group E", "Asian"))
+
+scores <- scores %>% mutate(parent_edu = dplyr::if_else(parent_edu_levl == "bachelor's degree", "BA", 
+                                    dplyr::if_else(parent_edu_levl == "some high school", "some hs",
+                                            dplyr::if_else(parent_edu_levl == "high school", "HS", 
+                                                    dplyr::if_else(parent_edu_levl == "some college", "some col", 
+                                                            dplyr::if_else(parent_edu_levl == "master's degree", "MA", "AA")))))) %>% dplyr::mutate(parent_edu = factor(parent_edu, levels = c("some hs", "HS", "some col", "AA", "BA", "MA")))
+
+scores <- scores %>% dplyr::select(-parent_edu_levl)
+head(scores)
+
+```
+
+
+
+Using the "avg_score" column, we can now begin to do some analysis between the different socioeconomic factors. Let's start by looking at some bar charts
+of average test scores for each category within a given column to see if we notice anything right off the bat. Before creating any visualizations, we'll need to create some variables to hold our aggregated, averaged data 
+
+```{r}
+gender_avg <- scores %>% dplyr::group_by(gender) %>% dplyr::summarize(avg_total_score = round(mean(total_score),2))
+race_avg <- scores %>% dplyr::group_by(race_ethnicity) %>% dplyr::summarize(avg_total_score = round(mean(total_score),2))
+edu_avg <- scores %>% dplyr::group_by(parent_edu) %>% dplyr::summarize(avg_total_score = round(mean(total_score),2))
+lunch_avg <- scores %>% dplyr::group_by(lunch) %>% dplyr::summarize(avg_total_score = round(mean(total_score), 2))
+prep_avg <- scores %>% dplyr::group_by(test_prep_course) %>% dplyr::summarize(avg_total_score = round(mean(total_score),2))
+```
+
+
+Now that we've built our variables containing our average scores for each feature, let's create some bar charts to see what we can find. 
+```{r fig.height = 15, fig.width = 13}
+gender_plot <- ggplot(gender_avg) + 
+  aes(x = gender, y = avg_total_score, fill = gender) + 
+  geom_bar(stat = "identity") + 
+  geom_text(aes(label = avg_total_score), position=position_dodge(width=0.9), vjust=-0.25) +
+  labs(title = "Average Test Scores by Gender") +
+  theme_tufte()
+
+race_plot <- ggplot(race_avg) + 
+  aes(x = race_ethnicity, y = avg_total_score, fill = race_ethnicity) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = avg_total_score), position=position_dodge(width=0.9), vjust=-0.25) +
+  labs(title = "Average Test Scores by Race/Ethnicity Group", x = "Race/Ethnicity Group") +
+  theme_tufte()
+
+edu_plot <- ggplot(edu_avg) + 
+  aes(x = parent_edu, y = avg_total_score, fill = parent_edu) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = avg_total_score), position=position_dodge(width=0.9), vjust=-0.25) +
+  labs(title = "Average Test Scores by Parent Education", x = "Parent Education Level") +
+  theme_tufte()
+
+lunch_plot <- ggplot(lunch_avg) + 
+  aes(x = lunch, y = avg_total_score, fill = lunch) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = avg_total_score), position=position_dodge(width=0.9), vjust=-0.25) +
+  labs(title = "Average Test Scores by Lunch Classification", x = "Lunch Classification") +
+  theme_tufte()
+
+prep_plot <- ggplot(prep_avg) + 
+  aes(x = test_prep_course, y = avg_total_score, fill = test_prep_course) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = avg_total_score), position=position_dodge(width=0.9), vjust=-0.25) +
+  labs(title = "Average Test Scores by Test Prep Course", x = "Test Prep?") +
+  theme_tufte()
+
+
+
+gridExtra::grid.arrange(gender_plot, race_plot, edu_plot, lunch_plot, prep_plot, ncol = 2)
+
+```
+
+From the five charts above, we notice several things right away: 
+
+* Females, on average, have higher test scores than males
+* Asians have the highest average test scores and black students have the lowest test scores
+* Students who have parents who have been to any amount of college, on average, have higher test scores than students with parents who've never attended
+* Students who are on free/reduced lunch have significantly lower scores than those who are not in that program - this may suggest that these homes have financial struggles
+* Students who took some type of test prep course perfromed better on average on the tests - which is what we would expect
+
+
+In looking at these visuals, my hunch is that students coming from families with financial hardships, on average, have lower test scores. Based on the "Average Test Scores by Parent Education" bar chart, it is quite clear that the more post high-school education the parent has received, the better their child performs on these tests. We are making an assumption here that the more education a person has, the more money they make, but I think in general, that is a safe assumption. Also, the key visualization in understanding a student's home financial situation is the "Average Test Scores by Lunch Classification". We can assume that only student's who demonstrate financial need are able to get free/reduced price lunches. It is clear that, on average, the students who are in this program have lower test scores than those who do not demonstrate this financial need. My next question is if there is a certain race/ethnicity that is more affected by this than another. Let's take a closer look: 
+
+```{r}
+#creating a new Data Frame for those only on free/reduced
+lunch_scores <- scores %>% dplyr::filter(lunch != "standard") %>% dplyr::group_by(race_ethnicity) %>% dplyr::summarize(avg_score = round(mean(avg_score),2))
+
+ggplot(data = lunch_scores) + 
+  aes(x = race_ethnicity, y = avg_score, fill = race_ethnicity) + 
+  geom_bar(stat = "identity") + 
+  geom_text(aes(label = avg_score), position=position_dodge(width=0.9), vjust=-0.25) + 
+  labs(title = "Average Test Scores by Race for Students in Free/Reduced Lunch Program") +
+  theme_tufte() 
+
+
+```
+
+In looking at the above bar chart, it is clear that the average test scores for black students receiving free/reduced lunches is the lowest of all the races included in this dataset. Let's now look at a boxplot to get a feel for the IQR and spread of the data between the different race profiles. 
+
+```{r}
+lunches_scores <- scores %>% filter(lunch != "standard")
+
+ggplot(data = lunches_scores) + 
+  aes(x = race_ethnicity, y = avg_score) + 
+  geom_boxplot() +
+  labs(title = "Boxplot of Average Student Scores For Those in Free/Reduced Lunch Program") + 
+  theme_tufte() 
+```
+
+Based on the above boxplot, we can see that Indians, Latinos, and Whites all have fairly similar medians and IQR's, however, black students have a significantly lower median and IQR overall. What is causing this? To answer this question, we would probably need to add some additional dimensional data to the current dataset, such as household income, number of parents at home, extra-cirricular activity participation, if the student is working or not, etc. With the data we have, let's see how many students participating in the free/reduced lunch program belong to each race. 
+
+```{r}
+lunch_count_scores <- scores %>% dplyr::filter(lunch != "standard") %>% dplyr::group_by(race_ethnicity) %>% summarize(count = n())
+
+ggplot(data = lunch_count_scores) + 
+  aes(x = race_ethnicity, y = count, fill = race_ethnicity) + 
+  geom_bar(stat = "identity") + 
+  geom_text(aes(label = count), position=position_dodge(width=0.9), vjust=-0.25) +
+  labs("Count of Students by Race for Students in Free/Reduced Lunch Program") + 
+  theme_tufte()
+  
+  
+```
+
+
+It appears that black students only make up 10% of this population (students with free/reduced lunch). It could be that our population of black students is too small a sample to get an accurate representation of what is happening between low income families and race. Perhaps in sampling, it just happened that more black students with lower test scores were randomly selected which is bringing down the median/average. To check this, my suggestion would be to extend the sample to make sure our calculations aren't skewed.
+
+
+This is evident as well in the scatter plot below which is looking at all 1,000 students. Besides the fact that the scatter plot indicates that there is a strong positive correlation between reading test scores and writing test scores, you can also see that there are far fewer black students as indicated by the brown dots in comparison to all the other races with the exception of Asians. This could potentially represent the demographics of the area where this data was collected - perhaps the area was predominately white, Indian, and Latino with only a few Black and Asian students. This could be verified by checking the census records for the area this data was collected. Perhaps, in the interest of looking at the relationship between test scores and race, a stratified sampling approach should be taken instead of purely random sampling,   
+
+
+```{r}
+#Creating scatter plot as part of the requirements of the homework. 
+ggplot(data = scores) + 
+  aes(x = write_score, y = read_score, color = race_ethnicity, alpha = 0.3) + 
+  geom_point() +
+  labs(title = "Relationship Between Reading and Writing Scores by Race")
+  
+```
+
+# **Conclusion**
+
+In conclusion, based on my analysis, I think it is clear that there is a relationship between student test scores and the financial health of the family they are coming from. We saw that those students who came from homes where parents were less educated often had lower test scores. In addition, we also saw that students who were enrolled in the free/reduced lunch program had significantly lower test scores than those who were not enrolled. 
+
+To extend this analysis we should bring in additional dimensional data, such as household income and verify our assumption that a relationship exists between test scores and the financial well being of each family. In addition, looking deeper into WHY students who's parents have attended college fare better on these tests would be interesting as well. Is it because their parents understand the value of education more and spend more time helping/tutoring their children? More data would be needed to answer these questions. 
+
+
+
+
+
+
+
+
+
